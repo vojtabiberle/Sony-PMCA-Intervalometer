@@ -1,6 +1,5 @@
 package com.github.ma1co.pmcademo.app;
 
-import android.hardware.Camera;
 import android.os.Bundle;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -24,7 +23,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
         SurfaceView surfaceView = (SurfaceView) findViewById(R.id.surfaceView);
         surfaceHolder = surfaceView.getHolder();
         surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-        setStatus("HX90V Intervalometer 0.2\nwaiting for preview...");
+        setStatus("HX90V Intervalometer 0.3\nwaiting for preview...");
     }
 
     @Override
@@ -55,7 +54,8 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
             camera.getNormalCamera().setPreviewDisplay(holder);
             camera.getNormalCamera().startPreview();
             ready = true;
-            setStatus("Ready\nENTER: test capture\nS2: disabled test\nMENU/DELETE: exit");
+            registerCameraExListeners();
+            setStatus("Ready\nENTER: CameraEx self-timer shutter\nS2: disabled test\nMENU/DELETE: exit");
         } catch (IOException e) {}
     }
 
@@ -78,20 +78,20 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
     protected boolean onFocusKeyUp() {
         if (camera != null) {
             camera.getNormalCamera().cancelAutoFocus();
-            setStatus("Ready\nENTER: test capture\nS2: disabled test\nMENU/DELETE: exit");
+            setStatus("Ready\nENTER: CameraEx self-timer shutter\nS2: disabled test\nMENU/DELETE: exit");
         }
         return true;
     }
 
     @Override
     protected boolean onShutterKeyDown() {
-        setStatus("S2 disabled in 0.2\nUse ENTER for capture test");
+        setStatus("S2 disabled in 0.3\nUse ENTER for CameraEx shutter test");
         return true;
     }
 
     @Override
     protected boolean onShutterKeyUp() {
-        setStatus("Ready\nENTER: test capture\nS2: disabled test\nMENU/DELETE: exit");
+        setStatus("Ready\nENTER: CameraEx self-timer shutter\nS2: disabled test\nMENU/DELETE: exit");
         return true;
     }
 
@@ -120,17 +120,41 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
         }
         capturing = true;
         shotCount++;
-        setStatus("Capturing test shot " + shotCount + "...");
-        camera.getNormalCamera().takePicture(null, null, new Camera.PictureCallback() {
+        setStatus("CameraEx self-timer shot " + shotCount + "...");
+        camera.startSelfTimerShutter();
+    }
+
+    private void registerCameraExListeners() {
+        camera.setErrorCallback(new CameraEx.ErrorCallback() {
             @Override
-            public void onPictureTaken(byte[] data, Camera normalCamera) {
+            public void onError(int error, CameraEx camera) {
                 capturing = false;
-                try {
-                    normalCamera.startPreview();
-                    setStatus("Picture callback OK\nbytes=" + (data == null ? 0 : data.length) + "\nENTER: next test");
-                } catch (RuntimeException e) {
-                    setStatus("Callback OK, preview restart failed\n" + e.getClass().getSimpleName());
-                }
+                setStatus("CameraEx error " + error + "\nENTER: retry");
+            }
+        });
+        camera.setShutterListener(new CameraEx.ShutterListener() {
+            @Override
+            public void onShutter(int status, CameraEx camera) {
+                setStatus("Shutter event status=" + status + "\nwaiting for store...");
+            }
+        });
+        camera.setCaptureStatusListener(new CameraEx.OnCaptureStatusListener() {
+            @Override
+            public void onStart(int status, CameraEx camera) {
+                setStatus("Capture started status=" + status);
+            }
+
+            @Override
+            public void onEnd(int status, int reason, CameraEx camera) {
+                capturing = false;
+                setStatus("Capture ended status=" + status + " reason=" + reason + "\nENTER: next test");
+            }
+        });
+        camera.setStoreImageCompleteListener(new CameraEx.StoreImageCompleteListener() {
+            @Override
+            public void onDone(int status, CameraEx.StoreImageInfo info, CameraEx camera) {
+                capturing = false;
+                setStatus("Store complete status=" + status + "\nENTER: next test");
             }
         });
     }
