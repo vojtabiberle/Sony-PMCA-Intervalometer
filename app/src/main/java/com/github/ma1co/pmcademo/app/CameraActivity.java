@@ -23,7 +23,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
         SurfaceView surfaceView = (SurfaceView) findViewById(R.id.surfaceView);
         surfaceHolder = surfaceView.getHolder();
         surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-        setStatus("HX90V Intervalometer 0.3\nwaiting for preview...");
+        setStatus("HX90V Intervalometer 0.4\nwaiting for preview...");
     }
 
     @Override
@@ -55,7 +55,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
             camera.getNormalCamera().startPreview();
             ready = true;
             registerCameraExListeners();
-            setStatus("Ready\nENTER: CameraEx self-timer shutter\nS2: disabled test\nMENU/DELETE: exit");
+            setStatus("Ready\nS2/ENTER: take picture\nMENU/DELETE: exit");
         } catch (IOException e) {}
     }
 
@@ -78,20 +78,19 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
     protected boolean onFocusKeyUp() {
         if (camera != null) {
             camera.getNormalCamera().cancelAutoFocus();
-            setStatus("Ready\nENTER: CameraEx self-timer shutter\nS2: disabled test\nMENU/DELETE: exit");
+            setStatus("Ready\nS2/ENTER: take picture\nMENU/DELETE: exit");
         }
         return true;
     }
 
     @Override
     protected boolean onShutterKeyDown() {
-        setStatus("S2 disabled in 0.3\nUse ENTER for CameraEx shutter test");
+        takePicture();
         return true;
     }
 
     @Override
     protected boolean onShutterKeyUp() {
-        setStatus("Ready\nENTER: CameraEx self-timer shutter\nS2: disabled test\nMENU/DELETE: exit");
         return true;
     }
 
@@ -120,7 +119,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
         }
         capturing = true;
         shotCount++;
-        setStatus("CameraEx self-timer shot " + shotCount + "...");
+        setStatus("Taking picture " + shotCount + "...");
         camera.startSelfTimerShutter();
     }
 
