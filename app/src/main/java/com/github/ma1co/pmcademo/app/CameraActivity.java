@@ -1,8 +1,10 @@
 package com.github.ma1co.pmcademo.app;
 
 import android.os.Bundle;
+import android.os.Handler;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.Window;
 import android.widget.TextView;
 import com.sony.scalar.hardware.CameraEx;
 
@@ -11,22 +13,51 @@ import java.io.IOException;
 public class CameraActivity extends BaseActivity implements SurfaceHolder.Callback {
     private SurfaceHolder surfaceHolder;
     private CameraEx camera;
+    private Handler handler;
     private boolean ready;
     private boolean capturing;
     private boolean resetting;
+    private boolean intervalRunning;
+    private boolean currentShotFromInterval;
+    private boolean waitingForFirstShot;
     private boolean shutterDown;
     private boolean enterDown;
     private int shotCount;
+    private int intervalShotCount;
+    private int intervalSeconds = 10;
+    private int firstDelaySeconds = 2;
+    private int targetShots;
+
+    private final Runnable firstIntervalShot = new Runnable() {
+        @Override
+        public void run() {
+            waitingForFirstShot = false;
+            if (intervalRunning && ready && !capturing && !resetting) {
+                takePicture(true);
+            }
+        }
+    };
+
+    private final Runnable nextIntervalShot = new Runnable() {
+        @Override
+        public void run() {
+            if (intervalRunning && ready && !capturing && !resetting) {
+                takePicture(true);
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera);
 
         SurfaceView surfaceView = (SurfaceView) findViewById(R.id.surfaceView);
         surfaceHolder = surfaceView.getHolder();
         surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-        setStatus("HX90V Intervalometer 0.8\nwaiting for preview...");
+        handler = new Handler();
+        setStatus("HX90V Intervalometer 0.10\nwaiting for preview...");
     }
 
     @Override
@@ -36,9 +67,13 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
         ready = false;
         capturing = false;
         resetting = false;
+        intervalRunning = false;
+        currentShotFromInterval = false;
+        waitingForFirstShot = false;
         shutterDown = false;
         enterDown = false;
         shotCount = 0;
+        intervalShotCount = 0;
         surfaceHolder.addCallback(this);
     }
 
@@ -49,8 +84,13 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
         ready = false;
         capturing = false;
         resetting = false;
+        intervalRunning = false;
+        currentShotFromInterval = false;
+        waitingForFirstShot = false;
         shutterDown = false;
         enterDown = false;
+        handler.removeCallbacks(firstIntervalShot);
+        handler.removeCallbacks(nextIntervalShot);
         surfaceHolder.removeCallback(this);
     }
 
@@ -91,7 +131,11 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
             return true;
         }
         shutterDown = true;
-        takePicture();
+        if (!intervalRunning) {
+            takePicture(false);
+        } else {
+            setStatus(formatStatus("Running", "S2 ignored"));
+        }
         return true;
     }
 
@@ -107,7 +151,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
             return true;
         }
         enterDown = true;
-        takePicture();
+        toggleInterval();
         return true;
     }
 
@@ -139,14 +183,105 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
         return true;
     }
 
-    private void takePicture() {
+    @Override
+    protected boolean onUpKeyDown() {
+        if (!intervalRunning) {
+            intervalSeconds = Math.min(600, intervalSeconds + intervalStep());
+            setReadyStatus();
+        }
+        return true;
+    }
+
+    @Override
+    protected boolean onDownKeyDown() {
+        if (!intervalRunning) {
+            intervalSeconds = Math.max(1, intervalSeconds - intervalStep());
+            setReadyStatus();
+        }
+        return true;
+    }
+
+    @Override
+    protected boolean onRightKeyDown() {
+        if (!intervalRunning) {
+            targetShots = Math.min(999, targetShots + 10);
+            setReadyStatus();
+        }
+        return true;
+    }
+
+    @Override
+    protected boolean onLeftKeyDown() {
+        if (!intervalRunning) {
+            targetShots = Math.max(0, targetShots - 10);
+            setReadyStatus();
+        }
+        return true;
+    }
+
+    @Override
+    protected boolean onFnKeyDown() {
+        if (!intervalRunning) {
+            if (firstDelaySeconds == 0) {
+                firstDelaySeconds = 2;
+            } else if (firstDelaySeconds == 2) {
+                firstDelaySeconds = 5;
+            } else if (firstDelaySeconds == 5) {
+                firstDelaySeconds = 10;
+            } else {
+                firstDelaySeconds = 0;
+            }
+            setReadyStatus();
+        }
+        return true;
+    }
+
+    private int intervalStep() {
+        return intervalSeconds < 10 ? 1 : 5;
+    }
+
+    private void toggleInterval() {
+        if (intervalRunning) {
+            stopInterval("Stopped");
+            return;
+        }
         if (!ready || capturing || resetting || camera == null) {
-            setStatus("Not ready\nready=" + ready + " capturing=" + capturing + "\nresetting=" + resetting);
+            setStatus(formatStatus("Not ready", null));
+            return;
+        }
+        intervalRunning = true;
+        waitingForFirstShot = firstDelaySeconds > 0;
+        intervalShotCount = 0;
+        if (waitingForFirstShot) {
+            setStatus(formatStatus("Starting in " + firstDelaySeconds + "s", formatSequenceCount()));
+            handler.removeCallbacks(firstIntervalShot);
+            handler.postDelayed(firstIntervalShot, firstDelaySeconds * 1000L);
+        } else {
+            takePicture(true);
+        }
+    }
+
+    private void stopInterval(String state) {
+        intervalRunning = false;
+        currentShotFromInterval = false;
+        waitingForFirstShot = false;
+        handler.removeCallbacks(firstIntervalShot);
+        handler.removeCallbacks(nextIntervalShot);
+        setStatus(formatStatus(state, null));
+    }
+
+    private void takePicture(boolean fromInterval) {
+        if (!ready || capturing || resetting || waitingForFirstShot || camera == null) {
+            setStatus(formatStatus("Not ready", "ready=" + ready + " capturing=" + capturing + " resetting=" + resetting));
             return;
         }
         capturing = true;
+        currentShotFromInterval = fromInterval;
+        if (fromInterval) {
+            intervalShotCount++;
+        }
         shotCount++;
-        setStatus("Taking picture " + shotCount + "...");
+        setStatus(formatStatus("Taking picture " + shotCount, fromInterval ? "Sequence " + formatSequenceCount() : "Manual"));
         camera.startSelfTimerShutter();
     }
 
@@ -156,19 +291,19 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
             public void onError(int error, CameraEx camera) {
                 capturing = false;
                 resetting = false;
-                setStatus("CameraEx error " + error + "\nS2/ENTER: retry");
+                stopInterval("CameraEx error " + error);
             }
         });
         camera.setShutterListener(new CameraEx.ShutterListener() {
             @Override
             public void onShutter(int status, CameraEx camera) {
-                setStatus("Shutter event status=" + status + "\nwaiting for store...");
+                setStatus(formatStatus("Shutter status=" + status, null));
             }
         });
         camera.setCaptureStatusListener(new CameraEx.OnCaptureStatusListener() {
             @Override
             public void onStart(int status, CameraEx camera) {
-                setStatus("Capture started status=" + status);
+                setStatus(formatStatus("Capture started", "status=" + status));
             }
 
             @Override
@@ -192,7 +327,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
         }
         resetting = true;
         ready = false;
-        setStatus("Resetting camera...");
+        setStatus(formatStatus("Resetting camera", null));
         releaseCamera();
         try {
             camera = CameraEx.open(0, null);
@@ -215,13 +350,29 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
             shutterDown = false;
             enterDown = false;
             registerCameraExListeners();
-            setReadyStatus();
+            onCameraReadyAfterReset();
         } catch (IOException e) {
             resetting = false;
-            setStatus("Preview failed\n" + e.getClass().getSimpleName() + "\nMENU: exit");
+            stopInterval("Preview failed " + e.getClass().getSimpleName());
         } catch (RuntimeException e) {
             resetting = false;
-            setStatus("Preview failed\n" + e.getClass().getSimpleName() + "\nMENU: exit");
+            stopInterval("Preview failed " + e.getClass().getSimpleName());
+        }
+    }
+
+    private void onCameraReadyAfterReset() {
+        if (intervalRunning && currentShotFromInterval) {
+            currentShotFromInterval = false;
+            if (targetShots > 0 && intervalShotCount >= targetShots) {
+                stopInterval("Done");
+            } else {
+                setStatus(formatStatus("Waiting " + intervalSeconds + "s", formatSequenceCount()));
+                handler.removeCallbacks(nextIntervalShot);
+                handler.postDelayed(nextIntervalShot, intervalSeconds * 1000L);
+            }
+        } else {
+            currentShotFromInterval = false;
+            setReadyStatus();
         }
     }
 
@@ -236,7 +387,20 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
     }
 
     private void setReadyStatus() {
-        setStatus("Ready\nS2/ENTER: take picture\nMENU: exit");
+        setStatus(formatStatus("Ready", null));
+    }
+
+    private String formatSequenceCount() {
+        return intervalShotCount + "/" + (targetShots == 0 ? "inf" : Integer.toString(targetShots));
+    }
+
+    private String formatStatus(String state, String detail) {
+        String shots = targetShots == 0 ? "inf" : Integer.toString(targetShots);
+        String status = state + "\nInterval " + intervalSeconds + "s  Shots " + shots + "  Delay " + firstDelaySeconds + "s\nS2 manual  ENTER run/stop\nUP/DOWN interval  LEFT/RIGHT shots\nFN first delay  MENU exit";
+        if (detail != null) {
+            status += "\n" + detail;
+        }
+        return status;
     }
 
     private void setStatus(String status) {
