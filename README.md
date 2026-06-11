@@ -17,6 +17,8 @@ Package id: `cz.bazil.sony.pmca.intervalometer`
 
 If you previously installed the HX90V-specific test build, uninstall it before installing this renamed app.
 
+Stable tag: `v0.13-stable`
+
 ## Tested Cameras
 
 Confirmed working:
@@ -135,6 +137,12 @@ APK output:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
+Release APK:
+
+```text
+releases/sony-pmca-intervalometer-0.13-debug.apk
+```
+
 ## Install
 
 From the workspace root:
@@ -142,4 +150,11 @@ From the workspace root:
 ```sh
 tools/pmca-venv/bin/python tools/Sony-PMCA-RE/pmca-console.py install \
   -f tools/HX90VIntervalometerApp/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Or install the release APK:
+
+```sh
+tools/pmca-venv/bin/python tools/Sony-PMCA-RE/pmca-console.py install \
+  -f tools/HX90VIntervalometerApp/releases/sony-pmca-intervalometer-0.13-debug.apk
 ```
