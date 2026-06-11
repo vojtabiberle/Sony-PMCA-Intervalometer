@@ -1,81 +1,104 @@
-# PMCADemo #
+# HX90V Intervalometer
 
-An Android demo app for Sony cameras to test some features.
+Standalone intervalometer app for Sony DSC-HX90V / PlayMemories Camera Apps runtime.
 
-## Installation ##
-Install it here: [sony-pmca.appspot.com/apps](https://sony-pmca.appspot.com/apps)
+The app is based on PMCADemo, but the camera path has been changed for HX90V:
 
-## Usage ##
-* The trash button is mapped to the back key
-* The app writes a log to the SD card (*PMCADEMO/LOG.TXT*)
+- Uses `CameraEx.startSelfTimerShutter()` for capture.
+- Resets the `CameraEx` session after every shot.
+- Keeps auto power off disabled while the app is active.
+- Hides the Android activity title bar.
 
-The following options are available:
+## Current Stable Version
 
-### Camera ##
-Displays the live view image and allows you to take a picture. The last settings are used. Mode dial changes are ignored.
+Version: `0.12`
 
-* Half-press the shutter button to focus
-* Fully press the shutter button to take a picture (it is saved on your SD card just as if you had taken it outside of Android) 
-* Press the trash button to exit
+Known-good commit:
 
-### Key events ###
-Displays key events.
+```text
+0110002 fix: default interval to zero seconds
+```
 
-* Press any key or disconnect the lens to log it on the screen
-* Press the trash button to exit
+## Controls
 
-### Properties ###
-Displays some camera properties (Model, serial number, etc.)
+```text
+S2                 manual shot, only when interval sequence is stopped
+ENTER              start / stop interval sequence
+UP / DOWN          interval between completed shots, default 0s
+LEFT / RIGHT       number of shots, 0 means infinite
+FN                 first-shot delay: 0s / 2s / 5s / 10s
+MENU               exit app
+DELETE             intentionally ignored
+```
 
-* Press the trash button to exit
+## Timing Model
 
-### Time ###
-Displays the current time. The camera time zone is used.
+`Delay` applies only before the first shot in an interval sequence.
 
-* Press the trash button to exit
+`Interval` is the wait after a shot is completed and the camera session has been reset.
 
-### Internet ###
-Connects to one of the configured wifi networks and displays a web browser. A simple web server is started, too. Open the displayed URL on any client in the same network.
+```text
+ENTER
+-> first delay
+-> shot 1
+-> reset camera session
+-> interval
+-> shot 2
+-> reset camera session
+-> interval
+-> shot 3
+```
 
-* Use the up / down / left / right and enter keys to use the browser
-* Press the trash button to exit
+With `Interval 0s`, the next shot starts as soon as the previous shot has completed and the camera has been reopened.
 
-### Wifi settings ###
-Opens the standard wifi settings.
+## Stable Capture Path
 
-* Press the menu button to exit
+The stock Android `android.hardware.Camera.takePicture(...)` path causes the HX90V to restart.
 
-### Wifi direct ###
-Enables the camera's wifi direct network and starts a simple web server. Connect a client to the wifi and open the displayed URL. WPS is currently not supported. 
+The stable path is:
 
-* Press the trash button to exit
+1. Open camera with `CameraEx.open(0, null)`.
+2. Start preview.
+3. Trigger shot with `CameraEx.startSelfTimerShutter()`.
+4. Wait for capture callback.
+5. Release the camera.
+6. Reopen `CameraEx`.
+7. Restart preview.
 
-### Display ###
-Logs changes of the active display.
+Do not remove the per-shot camera reset unless a replacement has been tested on the real camera.
 
-* Press the enter button or use the eyepiece sensor to change displays
-* Press the trash button to exit
+## Test Checklist
 
-### LEDs ###
-Test some camera LEDs. The charging LED doesn't seem to be supported.
+Before treating a build as stable:
 
-* Half-press the shutter button to turn on the AF light
-* Press the enter button to flash the card LED in different speeds
-* Press the trash button to exit
+1. Start the app and confirm preview appears.
+2. Take three manual shots with `S2`.
+3. Run a sequence with `Delay 2s`, `Interval 0s`, `Shots 30`.
+4. Run a longer astro-like sequence with the intended exposure settings.
+5. Stop a running sequence with `ENTER`.
+6. Exit with `MENU`.
 
-### Playback ###
-Displays the images on your SD card.
+## Build
 
-* Use the up / down keys to select an image
-* Press the enter button to display it
-* Press the trash button to exit
+From this directory:
 
-### Install ###
-Install new apps from your SD card. All *.spk* files under *[SD card]/PMCADEMO* are listed. You can download apps in spk format [here](https://sony-pmca.appspot.com/apps).
+```sh
+GRADLE_USER_HOME=$PWD/../android-build/gradle-home \
+JAVA_HOME=$PWD/../android-build/jdk8 \
+../android-build/gradle-4.10.3/bin/gradle assembleDebug --no-daemon --stacktrace
+```
 
-* Use the up / down keys to select a package
-* Press the enter button to install it
-* Press the trash button to exit
+APK output:
 
-## The Framework ##
-This app uses several Sony custom APIs. See [OpenMemories: Framework](https://github.com/ma1co/OpenMemories-Framework) for more information.
+```text
+app/build/outputs/apk/debug/app-debug.apk
+```
+
+## Install
+
+From the workspace root:
+
+```sh
+tools/pmca-venv/bin/python tools/Sony-PMCA-RE/pmca-console.py install \
+  -f tools/HX90VIntervalometerApp/app/build/outputs/apk/debug/app-debug.apk
+```

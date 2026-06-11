@@ -57,7 +57,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
         surfaceHolder = surfaceView.getHolder();
         surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
         handler = new Handler();
-        setStatus("HX90V Intervalometer 0.10\nwaiting for preview...");
+        setStatus("HX90V Intervalometer 0.12\nwaiting for preview...");
     }
 
     @Override
@@ -396,7 +396,14 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
 
     private String formatStatus(String state, String detail) {
         String shots = targetShots == 0 ? "inf" : Integer.toString(targetShots);
-        String status = state + "\nInterval " + intervalSeconds + "s  Shots " + shots + "  Delay " + firstDelaySeconds + "s\nS2 manual  ENTER run/stop\nUP/DOWN interval  LEFT/RIGHT shots\nFN first delay  MENU exit";
+        String mode = intervalRunning ? "RUN" : "READY";
+        String status = mode + " - " + state
+                + "\nI " + intervalSeconds + "s   D " + firstDelaySeconds + "s   N " + shots;
+        if (intervalRunning || intervalShotCount > 0) {
+            status += "   #" + formatSequenceCount();
+        }
+        status += "\nENTER start/stop   S2 manual"
+                + "\nUP/DOWN interval   LEFT/RIGHT count   FN delay   MENU exit";
         if (detail != null) {
             status += "\n" + detail;
         }
