@@ -1,0 +1,25 @@
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 10
+    buildToolsVersion "25.0.2"
+
+    defaultConfig {
+        applicationId "cz.bazil.hx90v.intervalometer"
+        minSdkVersion 10
+        targetSdkVersion 10
+        versionCode 1
+        versionName "0.1"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_6
+        targetCompatibility JavaVersion.VERSION_1_6
+    }
+}
+
+dependencies {
+    compile 'com.github.ma1co.OpenMemories-Framework:framework:-SNAPSHOT'
+    provided 'com.github.ma1co.OpenMemories-Framework:stubs:-SNAPSHOT'
+    compile 'com.nanohttpd:nanohttpd:2.1.1'
+}
