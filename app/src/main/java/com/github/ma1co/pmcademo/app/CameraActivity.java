@@ -31,7 +31,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
         surfaceHolder = surfaceView.getHolder();
         surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
         handler = new Handler();
-        setStatus("HX90V Intervalometer 0.6\nwaiting for preview...");
+        setStatus("HX90V Intervalometer 0.7\nwaiting for preview...");
     }
 
     @Override
@@ -50,10 +50,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
     @Override
     protected void onPause() {
         super.onPause();
-        if (camera != null) {
-            camera.release();
-            camera = null;
-        }
+        releaseCamera();
         ready = false;
         capturing = false;
         coolingDown = false;
@@ -65,13 +62,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        try {
-            camera.getNormalCamera().setPreviewDisplay(holder);
-            camera.getNormalCamera().startPreview();
-            ready = true;
-            registerCameraExListeners();
-            setReadyStatus();
-        } catch (IOException e) {}
+        startPreview(holder);
     }
 
     @Override
@@ -146,13 +137,11 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
 
     @Override
     protected boolean onDeleteKeyDown() {
-        setStatus("Use MENU to exit");
         return true;
     }
 
     @Override
     protected boolean onDeleteKeyUp() {
-        setStatus("Use MENU to exit");
         return true;
     }
 
@@ -213,12 +202,52 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                coolingDown = false;
-                if (ready && !capturing && camera != null) {
-                    setReadyStatus();
-                }
+                resetCameraSession();
             }
         }, CAPTURE_COOLDOWN_MS);
+    }
+
+    private void resetCameraSession() {
+        ready = false;
+        coolingDown = false;
+        releaseCamera();
+        try {
+            camera = CameraEx.open(0, null);
+            startPreview(surfaceHolder);
+        } catch (RuntimeException e) {
+            setStatus("Camera reopen failed\n" + e.getClass().getSimpleName() + "\nMENU: exit");
+        }
+    }
+
+    private void startPreview(SurfaceHolder holder) {
+        if (camera == null || holder == null) {
+            return;
+        }
+        try {
+            camera.getNormalCamera().setPreviewDisplay(holder);
+            camera.getNormalCamera().startPreview();
+            ready = true;
+            capturing = false;
+            coolingDown = false;
+            shutterDown = false;
+            enterDown = false;
+            registerCameraExListeners();
+            setReadyStatus();
+        } catch (IOException e) {
+            setStatus("Preview failed\n" + e.getClass().getSimpleName() + "\nMENU: exit");
+        } catch (RuntimeException e) {
+            setStatus("Preview failed\n" + e.getClass().getSimpleName() + "\nMENU: exit");
+        }
+    }
+
+    private void releaseCamera() {
+        if (camera != null) {
+            try {
+                camera.release();
+            } catch (RuntimeException e) {
+            }
+            camera = null;
+        }
     }
 
     private void setReadyStatus() {
