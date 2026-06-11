@@ -1,5 +1,6 @@
 package com.github.ma1co.pmcademo.app;
 
+import android.hardware.Camera;
 import android.os.Bundle;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -13,6 +14,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
     private CameraEx camera;
     private boolean ready;
     private boolean capturing;
+    private int shotCount;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -22,7 +24,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
         SurfaceView surfaceView = (SurfaceView) findViewById(R.id.surfaceView);
         surfaceHolder = surfaceView.getHolder();
         surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-        setStatus("ENTER/S2: take picture\nDELETE: exit");
+        setStatus("HX90V Intervalometer 0.2\nwaiting for preview...");
     }
 
     @Override
@@ -31,6 +33,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
         camera = CameraEx.open(0, null);
         ready = false;
         capturing = false;
+        shotCount = 0;
         surfaceHolder.addCallback(this);
     }
 
@@ -52,7 +55,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
             camera.getNormalCamera().setPreviewDisplay(holder);
             camera.getNormalCamera().startPreview();
             ready = true;
-            setStatus("Ready\nENTER/S2: take picture\nDELETE: exit");
+            setStatus("Ready\nENTER: test capture\nS2: disabled test\nMENU/DELETE: exit");
         } catch (IOException e) {}
     }
 
@@ -64,27 +67,31 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
 
     @Override
     protected boolean onFocusKeyDown() {
-        camera.getNormalCamera().autoFocus(null);
+        if (ready && camera != null) {
+            setStatus("Focusing...");
+            camera.getNormalCamera().autoFocus(null);
+        }
         return true;
     }
 
     @Override
     protected boolean onFocusKeyUp() {
-        camera.getNormalCamera().cancelAutoFocus();
+        if (camera != null) {
+            camera.getNormalCamera().cancelAutoFocus();
+            setStatus("Ready\nENTER: test capture\nS2: disabled test\nMENU/DELETE: exit");
+        }
         return true;
     }
 
     @Override
     protected boolean onShutterKeyDown() {
-        takePicture();
+        setStatus("S2 disabled in 0.2\nUse ENTER for capture test");
         return true;
     }
 
     @Override
     protected boolean onShutterKeyUp() {
-        if (camera != null) {
-            camera.cancelTakePicture();
-        }
+        setStatus("Ready\nENTER: test capture\nS2: disabled test\nMENU/DELETE: exit");
         return true;
     }
 
@@ -94,13 +101,38 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
         return true;
     }
 
+    @Override
+    protected boolean onMenuKeyUp() {
+        finish();
+        return true;
+    }
+
+    @Override
+    protected boolean onDeleteKeyUp() {
+        finish();
+        return true;
+    }
+
     private void takePicture() {
         if (!ready || capturing || camera == null) {
+            setStatus("Not ready\nready=" + ready + " capturing=" + capturing);
             return;
         }
         capturing = true;
-        setStatus("Capturing...");
-        camera.getNormalCamera().takePicture(null, null, null);
+        shotCount++;
+        setStatus("Capturing test shot " + shotCount + "...");
+        camera.getNormalCamera().takePicture(null, null, new Camera.PictureCallback() {
+            @Override
+            public void onPictureTaken(byte[] data, Camera normalCamera) {
+                capturing = false;
+                try {
+                    normalCamera.startPreview();
+                    setStatus("Picture callback OK\nbytes=" + (data == null ? 0 : data.length) + "\nENTER: next test");
+                } catch (RuntimeException e) {
+                    setStatus("Callback OK, preview restart failed\n" + e.getClass().getSimpleName());
+                }
+            }
+        });
     }
 
     private void setStatus(String status) {
