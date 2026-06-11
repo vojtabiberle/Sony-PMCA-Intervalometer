@@ -13,6 +13,8 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
     private CameraEx camera;
     private boolean ready;
     private boolean capturing;
+    private boolean shutterDown;
+    private boolean enterDown;
     private int shotCount;
 
     @Override
@@ -23,7 +25,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
         SurfaceView surfaceView = (SurfaceView) findViewById(R.id.surfaceView);
         surfaceHolder = surfaceView.getHolder();
         surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-        setStatus("HX90V Intervalometer 0.4\nwaiting for preview...");
+        setStatus("HX90V Intervalometer 0.5\nwaiting for preview...");
     }
 
     @Override
@@ -32,6 +34,8 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
         camera = CameraEx.open(0, null);
         ready = false;
         capturing = false;
+        shutterDown = false;
+        enterDown = false;
         shotCount = 0;
         surfaceHolder.addCallback(this);
     }
@@ -45,6 +49,8 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
         }
         ready = false;
         capturing = false;
+        shutterDown = false;
+        enterDown = false;
         surfaceHolder.removeCallback(this);
     }
 
@@ -55,7 +61,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
             camera.getNormalCamera().startPreview();
             ready = true;
             registerCameraExListeners();
-            setStatus("Ready\nS2/ENTER: take picture\nMENU/DELETE: exit");
+            setReadyStatus();
         } catch (IOException e) {}
     }
 
@@ -78,30 +84,59 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
     protected boolean onFocusKeyUp() {
         if (camera != null) {
             camera.getNormalCamera().cancelAutoFocus();
-            setStatus("Ready\nS2/ENTER: take picture\nMENU/DELETE: exit");
+            if (!capturing) {
+                setReadyStatus();
+            }
         }
         return true;
     }
 
     @Override
     protected boolean onShutterKeyDown() {
+        if (shutterDown) {
+            return true;
+        }
+        shutterDown = true;
         takePicture();
         return true;
     }
 
     @Override
     protected boolean onShutterKeyUp() {
+        shutterDown = false;
         return true;
     }
 
     @Override
     protected boolean onEnterKeyDown() {
+        if (enterDown) {
+            return true;
+        }
+        enterDown = true;
         takePicture();
         return true;
     }
 
     @Override
+    protected boolean onEnterKeyUp() {
+        enterDown = false;
+        return true;
+    }
+
+    @Override
+    protected boolean onMenuKeyDown() {
+        finish();
+        return true;
+    }
+
+    @Override
     protected boolean onMenuKeyUp() {
+        finish();
+        return true;
+    }
+
+    @Override
+    protected boolean onDeleteKeyDown() {
         finish();
         return true;
     }
@@ -128,7 +163,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
             @Override
             public void onError(int error, CameraEx camera) {
                 capturing = false;
-                setStatus("CameraEx error " + error + "\nENTER: retry");
+                setStatus("CameraEx error " + error + "\nS2/ENTER: retry");
             }
         });
         camera.setShutterListener(new CameraEx.ShutterListener() {
@@ -146,23 +181,33 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
             @Override
             public void onEnd(int status, int reason, CameraEx camera) {
                 capturing = false;
-                setStatus("Capture ended status=" + status + " reason=" + reason + "\nENTER: next test");
+                setReadyStatus();
             }
         });
         camera.setStoreImageCompleteListener(new CameraEx.StoreImageCompleteListener() {
             @Override
             public void onDone(int status, CameraEx.StoreImageInfo info, CameraEx camera) {
                 capturing = false;
-                setStatus("Store complete status=" + status + "\nENTER: next test");
+                setReadyStatus();
             }
         });
     }
 
+    private void setReadyStatus() {
+        setStatus("Ready\nS2/ENTER: take picture\nMENU/DELETE: exit");
+    }
+
     private void setStatus(String status) {
-        TextView textView = (TextView) findViewById(R.id.textView);
-        if (textView != null) {
-            textView.setText(status);
-        }
+        final String finalStatus = status;
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                TextView textView = (TextView) findViewById(R.id.textView);
+                if (textView != null) {
+                    textView.setText(finalStatus);
+                }
+            }
+        });
     }
 
     @Override

@@ -8,8 +8,8 @@ android {
         applicationId "cz.bazil.hx90v.intervalometer"
         minSdkVersion 10
         targetSdkVersion 10
-        versionCode 4
-        versionName "0.4"
+        versionCode 5
+        versionName "0.5"
     }
 
     compileOptions {
