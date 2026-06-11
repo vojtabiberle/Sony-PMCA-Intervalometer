@@ -24,7 +24,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
     private boolean enterDown;
     private int shotCount;
     private int intervalShotCount;
-    private int intervalSeconds = 10;
+    private int intervalSeconds = 0;
     private int firstDelaySeconds = 2;
     private int targetShots;
 
@@ -195,7 +195,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
     @Override
     protected boolean onDownKeyDown() {
         if (!intervalRunning) {
-            intervalSeconds = Math.max(1, intervalSeconds - intervalStep());
+            intervalSeconds = Math.max(0, intervalSeconds - intervalStep());
             setReadyStatus();
         }
         return true;
