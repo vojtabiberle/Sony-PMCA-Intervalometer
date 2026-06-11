@@ -57,7 +57,7 @@ public class CameraActivity extends BaseActivity implements SurfaceHolder.Callba
         surfaceHolder = surfaceView.getHolder();
         surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
         handler = new Handler();
-        setStatus("HX90V Intervalometer 0.12\nwaiting for preview...");
+        setStatus("Sony PMCA Intervalometer 0.13\nwaiting for preview...");
     }
 
     @Override

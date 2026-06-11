@@ -1,23 +1,64 @@
-# HX90V Intervalometer
+# Sony PMCA Intervalometer
 
-Standalone intervalometer app for Sony DSC-HX90V / PlayMemories Camera Apps runtime.
+Standalone intervalometer app for Sony cameras that can run PlayMemories Camera Apps / PMCA-style custom apps.
 
-The app is based on PMCADemo, but the camera path has been changed for HX90V:
+The app is based on PMCADemo, with the camera path changed to use the Sony camera extension API:
 
 - Uses `CameraEx.startSelfTimerShutter()` for capture.
 - Resets the `CameraEx` session after every shot.
 - Keeps auto power off disabled while the app is active.
 - Hides the Android activity title bar.
 
-## Current Stable Version
+## Current Version
 
-Version: `0.12`
+Version: `0.13`
 
-Known-good commit:
+Package id: `cz.bazil.sony.pmca.intervalometer`
 
-```text
-0110002 fix: default interval to zero seconds
-```
+If you previously installed the HX90V-specific test build, uninstall it before installing this renamed app.
+
+## Tested Cameras
+
+Confirmed working:
+
+- Sony DSC-HX90V, firmware version 1
+
+Tested HX90V behavior:
+
+- `S2` manual shot works.
+- `ENTER` interval sequence start/stop works.
+- `MENU` exits the app without restarting the camera.
+- `10` shots with `Interval 0s` works.
+- `30` shots with `Interval 0s` works.
+- `30` shots with `Interval 5s` works.
+
+## Likely Compatibility
+
+This app may also work on other Sony cameras from the PlayMemories Camera Apps generation, especially models where custom PMCA apps can be installed and the Sony `CameraEx` API behaves similarly.
+
+It is not expected to work on newer Sony cameras that cannot run PMCA/custom camera apps.
+
+Untested areas on other models:
+
+- whether `CameraEx.startSelfTimerShutter()` works
+- whether the camera needs the same per-shot camera reset
+- key mappings for `S2`, `ENTER`, `FN`, arrows, and `MENU`
+- whether `MENU` exits cleanly
+- whether long sequences remain stable
+
+## Test Reports Wanted
+
+If you test another camera model, please report:
+
+- exact camera model
+- firmware version
+- whether the app installs and starts
+- whether preview appears
+- whether `S2` takes one shot
+- whether `ENTER` starts and stops a sequence
+- whether `MENU` exits without rebooting the camera
+- longest sequence tested, including interval and exposure settings
+- any key mapping differences
 
 ## Controls
 
@@ -53,7 +94,7 @@ With `Interval 0s`, the next shot starts as soon as the previous shot has comple
 
 ## Stable Capture Path
 
-The stock Android `android.hardware.Camera.takePicture(...)` path causes the HX90V to restart.
+On the HX90V, the stock Android `android.hardware.Camera.takePicture(...)` path causes the camera to restart.
 
 The stable path is:
 
@@ -65,11 +106,11 @@ The stable path is:
 6. Reopen `CameraEx`.
 7. Restart preview.
 
-Do not remove the per-shot camera reset unless a replacement has been tested on the real camera.
+Do not remove the per-shot camera reset unless a replacement has been tested on a real camera.
 
 ## Test Checklist
 
-Before treating a build as stable:
+Before treating a build as stable on a model:
 
 1. Start the app and confirm preview appears.
 2. Take three manual shots with `S2`.

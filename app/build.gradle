@@ -5,11 +5,11 @@ android {
     buildToolsVersion "25.0.2"
 
     defaultConfig {
-        applicationId "cz.bazil.hx90v.intervalometer"
+        applicationId "cz.bazil.sony.pmca.intervalometer"
         minSdkVersion 10
         targetSdkVersion 10
-        versionCode 12
-        versionName "0.12"
+        versionCode 13
+        versionName "0.13"
     }
 
     compileOptions {
